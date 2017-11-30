@@ -49,12 +49,13 @@ def get_next_batch(stock_price_ratios, batch_size=128):
     Features are the stock price ratio at previous 30 time steps
     Outputs are the comparison between two stocks at next stock price ratio
     """
-    idx1 = np.random.randint(stock_price_ratios.shape[0], size=batch_size)
-    idx2 = np.random.randint(stock_price_ratios.shape[0], size=batch_size)
-    time = np.random.randint(stock_price_ratios.shape[1]-30)
-    x1 = stock_price_ratios[idx1, time:time+30]
-    x2 = stock_price_ratios[idx2, time:time+30]
-    ratio_diff = stock_price_ratios[idx1, time+30] - stock_price_ratios[idx2, time+30]
+    day_id = np.random.randint(len(stock_price_ratios))
+    idx1 = np.random.randint(stock_price_ratios[day_id].shape[0], size=batch_size)
+    idx2 = np.random.randint(stock_price_ratios[day_id].shape[0], size=batch_size)
+    time = np.random.randint(stock_price_ratios[day_id].shape[1]-30)
+    x1 = stock_price_ratios[day_id][idx1, time:time+30]
+    x2 = stock_price_ratios[day_id][idx2, time:time+30]
+    ratio_diff = stock_price_ratios[day_id][idx1, time+30] - stock_price_ratios[day_id][idx2, time+30]
     y = np.zeros_like(ratio_diff)
     y[ratio_diff > 0] = 0
     y[ratio_diff < 0] = 1
@@ -144,25 +145,32 @@ def prepare_data(lines):
     stock1    price_ratio1, price_ratio2, price_ratio3, ...
     stock2    price_ratio1, price_ratio2, price_ratio3, ...
     """
-    data = []
+    stock_price_ratios = []
     for item in lines:
-        line = item.strip().split(',')
-        data.append(line)
-    data = np.array(data)
-    data = data[1:, 1:]
-    data = data.astype(np.float)
-    print(data)
-    print(data.shape)
-    data = np.log(data[:, 1:] / data[:, :-1])
-    print(data)
-    print(data.shape)
-    return data
+        data = []
+        for current_line in item:
+            line = current_line.strip().split(',')
+            data.append(line)
+        data = np.array(data)
+        data = data[1:, 1:]
+        data = data.astype(np.float)
+        print(data)
+        print(data.shape)
+        data = np.log(data[:, 1:] / data[:, :-1])
+        print(data)
+        print(data.shape)
+        stock_price_ratios.append(data)
+    return stock_price_ratios
 
 
 def main():
-    with open('Nov20_5m.csv', 'r') as f:
-        lines = f.readlines()
-    stock_price_ratios = prepare_data(lines)
+    stock_file_list = ['Nov20_5m.csv', 'Nov21_5m.csv']
+    total_lines = []
+    for stock_file in stock_file_list:
+        with open(stock_file, 'r') as f:
+            lines = f.readlines()
+        total_lines.append(lines)
+    stock_price_ratios = prepare_data(total_lines)
     get_next_batch(stock_price_ratios)
     model = train(stock_price_ratios)
     test(stock_price_ratios, model)
